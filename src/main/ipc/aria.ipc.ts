@@ -1,9 +1,12 @@
 // ARIA IPC handlers — Phase 25 Floating Meeting Intelligence Assistant
+// AI Engine: Gemini 2.0 Flash (primary, via Google OAuth) → Ollama qwen2.5:3b (fallback)
 import { ipcMain } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import Database from 'better-sqlite3'
 import { ARIARagService } from '../services/aria/aria-rag.service'
 import { PageContext, ChatMessage } from '../../shared/types/aria.types'
+import { GeminiService } from '../services/google/gemini.service'
+import { GoogleAuthService } from '../services/google/google-auth.service'
 
 interface OllamaResponse {
   response?: string
@@ -37,6 +40,7 @@ You are provided with relevant meeting data in [CONTEXT] below.`
 
 export function initARIAIPC(db: Database.Database): void {
   const ragService = new ARIARagService(db)
+  const authService = new GoogleAuthService(db)
 
   // ── Create / get active session ────────────────────────────────────────────
 
@@ -82,9 +86,9 @@ export function initARIAIPC(db: Database.Database): void {
     const { chunks, summary, totalTokens } = ragService.buildContext(userText, pageContext, history)
     const contextStr = ragService.formatContextForPrompt(chunks)
 
-    // Build full prompt
+    // Build full prompt (for Ollama fallback — Gemini uses contextStr separately)
     const conversationForLLM = history.slice(-10).map((m) => `${m.role === 'user' ? 'User' : 'ARIA'}: ${m.textContent}`).join('\n')
-    const fullPrompt = [
+    const fullOllamaPrompt = [
       ARIA_SYSTEM_PROMPT,
       contextStr ? `\n[CONTEXT]\n${contextStr}` : '',
       pageContext.contextLabel ? `\n[CURRENT PAGE]\nUser is viewing: ${pageContext.contextLabel}` : '',
@@ -92,33 +96,57 @@ export function initARIAIPC(db: Database.Database): void {
       `\nUser: ${userText}\nARIA:`,
     ].filter(Boolean).join('\n')
 
-    // Call Ollama qwen2.5:3b
     let responseText = ''
+    let modelUsed: 'qwen2.5:3b' | 'gemini' = 'qwen2.5:3b'
+
+    // ── PRIMARY: Gemini 2.0 Flash via Google OAuth ─────────────────────────
     try {
-      const resp = await fetch('http://localhost:11434/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'qwen2.5:3b',
-          prompt: fullPrompt,
-          stream: false,
-          options: { temperature: 0.3, num_ctx: 8192, top_p: 0.9 },
-        }),
-        signal: AbortSignal.timeout(60000),
-      })
-      const data = await resp.json() as OllamaResponse
-      responseText = data.response?.trim() ?? 'I encountered an issue generating a response. Please try again.'
-    } catch {
-      responseText = 'ARIA is offline — Ollama is not reachable. Please ensure qwen2.5:3b is running via `ollama serve`.'
+      if (authService.isSignedIn()) {
+        await authService.refreshIfNeeded()   // refreshes stored token if expiring
+        const tokens = authService.getSignedInUser()
+        if (!tokens?.accessToken) throw new Error('No access token available')
+
+        const geminiService = new GeminiService(tokens.accessToken)
+        const result = await geminiService.chat(ARIA_SYSTEM_PROMPT, userText, contextStr)
+        if (!result?.text) throw new Error('Gemini returned empty response')
+
+        responseText = result.text.trim()
+        modelUsed = 'gemini'
+        console.log('[ARIA] Gemini responded OK')
+      } else {
+        throw new Error('Not signed in to Google — skipping Gemini')
+      }
+    } catch (geminiErr) {
+      console.warn('[ARIA] Gemini unavailable, falling back to Ollama:', String(geminiErr))
+
+      // ── FALLBACK: Ollama qwen2.5:3b ──────────────────────────────────────
+      try {
+        const resp = await fetch('http://localhost:11434/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'qwen2.5:3b',
+            prompt: fullOllamaPrompt,
+            stream: false,
+            options: { temperature: 0.3, num_ctx: 8192, top_p: 0.9 },
+          }),
+          signal: AbortSignal.timeout(60000),
+        })
+        const data = await resp.json() as OllamaResponse
+        responseText = data.response?.trim() ?? 'I encountered an issue generating a response. Please try again.'
+        modelUsed = 'qwen2.5:3b'
+      } catch {
+        responseText = 'ARIA is offline — neither Gemini nor Ollama is reachable. Please sign in to Google for Gemini, or ensure qwen2.5:3b is running via `ollama serve`.'
+      }
     }
 
     const processingMs = Date.now() - t0
 
-    // Save ARIA response
+    // Save ARIA response (with model_used)
     const ariaMsgId = uuidv4()
     db.prepare(
-      `INSERT INTO aria_messages (id, session_id, role, status, text_content, context_used_json, context_summary, tokens_used, processing_ms, page_context_json) VALUES (?, ?, 'aria', 'complete', ?, ?, ?, ?, ?, ?)`
-    ).run(ariaMsgId, sessionId, responseText, JSON.stringify(chunks), summary, totalTokens, processingMs, pageContextJson)
+      `INSERT INTO aria_messages (id, session_id, role, status, text_content, context_used_json, context_summary, tokens_used, processing_ms, page_context_json, model_used) VALUES (?, ?, 'aria', 'complete', ?, ?, ?, ?, ?, ?, ?)`
+    ).run(ariaMsgId, sessionId, responseText, JSON.stringify(chunks), summary, totalTokens, processingMs, pageContextJson, modelUsed)
 
     // Update session metadata
     db.prepare(
@@ -131,6 +159,7 @@ export function initARIAIPC(db: Database.Database): void {
       contextSummary: summary,
       tokensUsed: totalTokens,
       processingMs,
+      modelUsed,
     }
   })
 

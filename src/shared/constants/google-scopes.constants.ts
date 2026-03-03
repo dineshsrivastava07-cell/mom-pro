@@ -4,11 +4,24 @@
  * Grouped by service for clarity.
  */
 export const GOOGLE_OAUTH_SCOPES = [
-  // ── IDENTITY ONLY — non-sensitive, zero verification required ──
-  // Gmail/Calendar/Tasks scopes added incrementally when used
+  // ── IDENTITY — non-sensitive ──────────────────────────────────────────────
   'openid',
   'email',
   'profile',
+
+  // ── Google Calendar ───────────────────────────────────────────────────────
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/calendar.events',
+
+  // ── Gmail ─────────────────────────────────────────────────────────────────
+  'https://mail.google.com/',
+  'https://www.googleapis.com/auth/gmail.send',
+
+  // ── Google Tasks ──────────────────────────────────────────────────────────
+  'https://www.googleapis.com/auth/tasks',
+
+  // ── Gemini AI (Generative Language) ───────────────────────────────────────
+  'https://www.googleapis.com/auth/generative-language',
 ] as const
 
 export type GoogleScope = (typeof GOOGLE_OAUTH_SCOPES)[number]
@@ -26,21 +39,27 @@ export const SCOPE_DESCRIPTIONS: Record<string, {
     required: true,
   },
   gmail: {
-    scopes: ['gmail.send', 'gmail.readonly'],
+    scopes: ['https://mail.google.com/', 'https://www.googleapis.com/auth/gmail.send'],
     label: 'Gmail',
     description: 'Send MOM documents and task reminders via your Gmail.',
     required: false,
   },
   calendar: {
-    scopes: ['calendar', 'calendar.events'],
+    scopes: ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/calendar.events'],
     label: 'Google Calendar',
     description: 'Sync meeting events, deadlines, and milestones to your calendar.',
     required: false,
   },
   tasks: {
-    scopes: ['tasks'],
+    scopes: ['https://www.googleapis.com/auth/tasks'],
     label: 'Google Tasks',
     description: 'Sync action items to Google Tasks with deadlines and assignees.',
+    required: false,
+  },
+  gemini: {
+    scopes: ['https://www.googleapis.com/auth/generative-language'],
+    label: 'Gemini AI',
+    description: 'Power ARIA with Gemini 2.0 Flash using your Google account — no separate API key needed.',
     required: false,
   },
 }

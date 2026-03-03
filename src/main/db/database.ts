@@ -367,6 +367,20 @@ const MIGRATIONS: Array<{ version: number; sql: string }> = [
       CREATE INDEX IF NOT EXISTS idx_registry_mtg  ON item_code_registry(mtg_code);
       CREATE INDEX IF NOT EXISTS idx_registry_type ON item_code_registry(item_type);
     `
+  },
+
+  // ── v5: Gemini settings ───────────────────────────────────────────────────
+  {
+    version: 5,
+    sql: `
+      CREATE TABLE IF NOT EXISTS gemini_settings (
+        id TEXT PRIMARY KEY DEFAULT 'default',
+        model TEXT DEFAULT 'gemini-2.0-flash',
+        enabled INTEGER DEFAULT 1,
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      INSERT OR IGNORE INTO gemini_settings (id) VALUES ('default');
+    `
   }
 ]
 

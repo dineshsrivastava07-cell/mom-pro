@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import {
   LogOut, CheckCircle2, AlertTriangle, Loader2,
-  Calendar, Mail, ListChecks, RefreshCw, X
+  Calendar, Mail, ListChecks, RefreshCw, X, Sparkles
 } from 'lucide-react'
 
 const ipc = window.electron.ipcRenderer
@@ -115,9 +115,12 @@ export function GoogleTab(): React.JSX.Element {
               <div>
                 <p className="text-sm font-semibold text-gray-900">{status.user.name}</p>
                 <p className="text-xs text-gray-500">{status.user.email}</p>
-                <div className="flex items-center gap-1 mt-0.5">
+                <div className="flex items-center gap-2 mt-0.5">
                   <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                   <span className="text-xs text-emerald-600 font-medium">Connected</span>
+                  <span className="inline-flex items-center gap-1 text-xs text-purple-700 font-medium bg-purple-50 border border-purple-200 rounded-full px-2 py-0.5">
+                    <Sparkles className="w-2.5 h-2.5" /> Gemini Active
+                  </span>
                 </div>
               </div>
             </div>
@@ -225,6 +228,7 @@ export function GoogleTab(): React.JSX.Element {
         <div className="space-y-2">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Active Features</p>
           {[
+            { icon: <Sparkles className="w-4 h-4 text-purple-600" />, title: 'Gemini AI', desc: 'ARIA powered by Gemini 2.0 Flash via your Google account — no separate API key needed' },
             { icon: <Calendar className="w-4 h-4 text-blue-600" />, title: 'Google Calendar', desc: 'Meetings & deadlines synced to your calendar' },
             { icon: <Mail className="w-4 h-4 text-red-500" />, title: 'Gmail', desc: 'Send MOM to attendees via your Gmail' },
             { icon: <ListChecks className="w-4 h-4 text-emerald-600" />, title: 'Google Tasks', desc: 'Action items pushed to Google Tasks' },
