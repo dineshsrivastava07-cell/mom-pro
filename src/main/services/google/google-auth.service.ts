@@ -284,7 +284,7 @@ export class GoogleAuthService {
 
         console.log('[GoogleAuth] Callback received — state match:', stateStr === expectedState, '| error:', errorStr ?? 'none')
 
-        res.writeHead(200, { 'Content-Type': 'text/html' })
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
 
         if (errorStr) {
           res.end(`<html><body style="font-family:sans-serif;padding:40px"><h2 style="color:#dc2626">Sign-in failed</h2><p>Google error: <code>${errorStr}</code></p><p>You can close this window and try again.</p></body></html>`)
