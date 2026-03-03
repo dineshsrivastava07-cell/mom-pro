@@ -13,8 +13,7 @@ export const GOOGLE_OAUTH_SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/calendar.events',
 
-  // ── Gmail ─────────────────────────────────────────────────────────────────
-  'https://mail.google.com/',
+  // ── Gmail (send-only — not full mailbox access) ───────────────────────────
   'https://www.googleapis.com/auth/gmail.send',
 
   // ── Google Tasks ──────────────────────────────────────────────────────────
@@ -39,7 +38,7 @@ export const SCOPE_DESCRIPTIONS: Record<string, {
     required: true,
   },
   gmail: {
-    scopes: ['https://mail.google.com/', 'https://www.googleapis.com/auth/gmail.send'],
+    scopes: ['https://www.googleapis.com/auth/gmail.send'],
     label: 'Gmail',
     description: 'Send MOM documents and task reminders via your Gmail.',
     required: false,

@@ -101,21 +101,25 @@ export function initARIAIPC(db: Database.Database): void {
 
     // ── PRIMARY: Gemini 2.0 Flash via Google OAuth ─────────────────────────
     try {
-      if (authService.isSignedIn()) {
-        await authService.refreshIfNeeded()   // refreshes stored token if expiring
-        const tokens = authService.getSignedInUser()
-        if (!tokens?.accessToken) throw new Error('No access token available')
+      if (!authService.isSignedIn()) throw new Error('Not signed in to Google — skipping Gemini')
 
-        const geminiService = new GeminiService(tokens.accessToken)
-        const result = await geminiService.chat(ARIA_SYSTEM_PROMPT, userText, contextStr)
-        if (!result?.text) throw new Error('Gemini returned empty response')
-
-        responseText = result.text.trim()
-        modelUsed = 'gemini'
-        console.log('[ARIA] Gemini responded OK')
-      } else {
-        throw new Error('Not signed in to Google — skipping Gemini')
+      const refreshed = await authService.refreshIfNeeded()
+      if (!refreshed) {
+        // Token expired and refresh failed — sign out to avoid stale state
+        authService.signOut()
+        throw new Error('Google token refresh failed — user signed out')
       }
+
+      const tokens = authService.getSignedInUser()
+      if (!tokens?.accessToken) throw new Error('No access token after refresh')
+
+      const geminiService = new GeminiService(tokens.accessToken)
+      const result = await geminiService.chat(ARIA_SYSTEM_PROMPT, userText, contextStr)
+      if (!result?.text) throw new Error('Gemini returned empty response')
+
+      responseText = result.text.trim()
+      modelUsed = 'gemini'
+      console.log('[ARIA] Gemini 2.0 Flash responded OK')
     } catch (geminiErr) {
       console.warn('[ARIA] Gemini unavailable, falling back to Ollama:', String(geminiErr))
 

@@ -14,6 +14,7 @@ interface ARIAMessage {
   contextSummary?: string
   tokensUsed?: number
   processingMs?: number
+  modelUsed?: 'qwen2.5:3b' | 'gemini'
   createdAt: Date | string
 }
 
@@ -44,6 +45,7 @@ export function ARIABubble({ pageContext }: ARIABubbleProps): React.JSX.Element 
   const [thinking, setThinking] = useState(false)
   const [initialized, setInitialized] = useState(false)
   const [showQuickPrompts, setShowQuickPrompts] = useState(true)
+  const [activeModel, setActiveModel] = useState<'qwen2.5:3b' | 'gemini'>('qwen2.5:3b')
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -141,7 +143,7 @@ export function ARIABubble({ pageContext }: ARIABubbleProps): React.JSX.Element 
     try {
       const historyJson = JSON.stringify(messages.slice(-10))
       const result = await ipc.invoke('aria:send-message', activeSession.id, text.trim(), ctxJson, historyJson) as {
-        messageId: string; text: string; contextSummary?: string; tokensUsed?: number; processingMs?: number
+        messageId: string; text: string; contextSummary?: string; tokensUsed?: number; processingMs?: number; modelUsed?: string
       }
 
       // Replace thinking placeholder with real response
@@ -152,14 +154,16 @@ export function ARIABubble({ pageContext }: ARIABubbleProps): React.JSX.Element 
         contextSummary: result.contextSummary,
         tokensUsed: result.tokensUsed,
         processingMs: result.processingMs,
+        modelUsed: result.modelUsed as 'qwen2.5:3b' | 'gemini' | undefined,
         createdAt: new Date(),
       }
+      if (result.modelUsed) setActiveModel(result.modelUsed as 'qwen2.5:3b' | 'gemini')
       setMessages((prev) => prev.filter((m) => m.id !== thinkingId).concat(ariaMsg))
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== thinkingId).concat({
         id: `err-${Date.now()}`,
         role: 'aria',
-        textContent: 'I encountered an error. Please check that Ollama is running with qwen2.5:3b.',
+        textContent: 'I encountered an error. If using Gemini, check your Google sign-in in Settings. Otherwise ensure Ollama is running with qwen2.5:3b.',
         createdAt: new Date(),
       }))
     } finally {
@@ -309,7 +313,9 @@ export function ARIABubble({ pageContext }: ARIABubbleProps): React.JSX.Element 
                 </button>
               </div>
               <div className="flex items-center justify-between mt-1">
-                <p className="text-[10px] text-gray-400">⌘J to toggle · qwen2.5:3b · fully offline</p>
+                <p className="text-[10px] text-gray-400">
+                  ⌘J to toggle · {activeModel === 'gemini' ? '✦ Gemini 2.0 Flash' : 'qwen2.5:3b · offline'}
+                </p>
                 {session && (
                   <button onClick={() => setShowQuickPrompts((s) => !s)} className="text-[10px] text-gray-400 hover:text-indigo-600 flex items-center gap-0.5">
                     Quick prompts <ChevronDown className="w-2.5 h-2.5" />
