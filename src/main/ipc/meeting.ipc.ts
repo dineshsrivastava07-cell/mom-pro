@@ -5,6 +5,7 @@ import { AlertSchedulerService } from '../services/alert-scheduler.service'
 import { AlertFactoryService } from '../services/alert-factory.service'
 import { meetingCodeGenerator } from '../../shared/utils/meeting-code.utils'
 import { getNextMeetingSequential } from '../db/database'
+import { triggerMeetingSync, triggerTaskSync } from './sync.ipc'
 import {
   Meeting, Task, AgendaItem, KeyDecision, Highlight, Timeline, Attendee,
   TaskPriority, TaskStatus, MeetingMode, MOMDocument
@@ -431,6 +432,9 @@ export function initMeetingIPC(db: Database.Database, scheduler: AlertSchedulerS
       alerts_activated: activatedAlertIds.length,
     })
 
+    // Trigger Google Workspace sync in background (non-blocking)
+    void triggerMeetingSync(meetingId)
+
     return { meetingCode: codeObj.full, alertsActivated: activatedAlertIds.length, displayLabel: codeObj.displayLabel }
   })
 
@@ -442,7 +446,7 @@ export function initMeetingIPC(db: Database.Database, scheduler: AlertSchedulerS
   }) => {
     const meeting = repo.getMeeting(meetingId)
     if (!meeting) throw new Error('Meeting not found')
-    return repo.addTask({
+    const task = repo.addTask({
       meeting_id: meetingId,
       meeting_code: meeting.meeting_code ?? '',
       item_code: null, mtg_code_ref: null,
@@ -453,6 +457,9 @@ export function initMeetingIPC(db: Database.Database, scheduler: AlertSchedulerS
       discussed_at: null, was_shared: 0, was_delegated: 0, is_manual: 1,
       edit_history: '[]',
     })
+    // Sync to Google Tasks if deadline is set
+    if (data.deadline) void triggerTaskSync(task.id)
+    return task
   })
 
   ipcMain.handle('tasks:update', (_e, taskId: string, data: Record<string, unknown>) => {

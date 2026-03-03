@@ -9,6 +9,7 @@ import { initAlertIPC } from './ipc/alert.ipc'
 import { initMeetingIPC } from './ipc/meeting.ipc'
 import { initARIAIPC } from './ipc/aria.ipc'
 import { initGoogleIPC } from './ipc/google.ipc'
+import { initSyncIPC, runBackgroundSync } from './ipc/sync.ipc'
 
 let schedulerService: AlertSchedulerService | null = null
 
@@ -94,6 +95,7 @@ app.whenReady().then(async () => {
   initMeetingIPC(db, schedulerService)
   initARIAIPC(db)
   initGoogleIPC(db)
+  initSyncIPC(db)
   ipcMain.on('ping', () => console.log('pong'))
 
   // Ollama model health check IPC
@@ -129,6 +131,9 @@ app.whenReady().then(async () => {
   // Start scheduler (loads & schedules all saved alerts)
   await schedulerService.initialize()
   console.log('[Main] Alert Scheduler running')
+
+  // Background Google Workspace sync (runs only if signed in, non-blocking)
+  void runBackgroundSync()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

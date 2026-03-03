@@ -381,6 +381,23 @@ const MIGRATIONS: Array<{ version: number; sql: string }> = [
       );
       INSERT OR IGNORE INTO gemini_settings (id) VALUES ('default');
     `
+  },
+
+  // ── v6: Google Workspace sync log ─────────────────────────────────────────
+  {
+    version: 6,
+    sql: `
+      CREATE TABLE IF NOT EXISTS google_sync_log (
+        id TEXT PRIMARY KEY,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        google_service TEXT NOT NULL,
+        google_id TEXT,
+        error TEXT,
+        synced_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_sync_log_entity ON google_sync_log(entity_type, entity_id, google_service);
+    `
   }
 ]
 
